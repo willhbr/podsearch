@@ -1,18 +1,12 @@
 defmodule PodcastSearch do
-  @moduledoc """
-  Documentation for PodcastSearch.
-  """
-
-  @doc """
-  Hello world.
-
-  ## Examples
-
-      iex> PodcastSearch.hello
-      :world
-
-  """
-  def hello do
-    :world
+  def download_latest(url) do
+    Feed.parse_from_url(url).episodes
+    |> hd
+    |> Downloader.download_podcast
+    |> case do
+      {:ok, path} -> path
+    end
+    |> Encoder.reencode
+    |> Transcriber.start_link
   end
 end

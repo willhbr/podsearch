@@ -1,5 +1,7 @@
 defmodule Encoder do
-  def reencode(path, output) do
+  def reencode(path) do
+    output = path <> ".wav"
+    File.rm(output)
     exec = System.find_executable("ffmpeg")
     port = Port.open(
       {:spawn_executable, exec},
@@ -14,7 +16,19 @@ defmodule Encoder do
       ]
     )
     Port.connect(port, self())
-    # Task.start_link(__MODULE__, :poke, [self()])
-    # {:ok, initial_state(port)}
+    loop(port)
+    path <> ".wav"
+  end
+
+  defp loop(port) do
+    receive do
+      _message ->
+        loop(port)
+    after
+      30_000 ->
+        if Port.info(port) do
+          loop(port)
+        end
+    end
   end
 end
