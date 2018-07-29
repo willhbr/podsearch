@@ -22,7 +22,10 @@ defmodule PodcastSearch.MixProject do
   defp deps do
     [
       elixir_feed_parser: "~> 0.0.1",
-      httpoison: "~> 1.0"
+      httpoison: "~> 1.0",
+      # download: "~> 0.0.4",
+    ] ++ [
+      {:download, git: "https://github.com/willhbr/download"},
     ]
   end
 end

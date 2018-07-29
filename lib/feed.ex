@@ -5,6 +5,12 @@ defmodule Feed do
     episodes: []
   ]
 
+  def parse_from_url(url) do
+    HTTPoison.get!(url).body
+    |> ElixirFeedParser.parse
+    |> from_feed
+  end
+
   def from_feed(%{url: url, title: title, entries: entries}) do
     episodes = Enum.map(entries, &Feed.Episode.from_feed_entry/1)
     %Feed{url: url, title: title, episodes: episodes}
