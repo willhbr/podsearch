@@ -11,6 +11,6 @@ defmodule PodcastSearch do
       {:ok, pid} -> pid
     end
     |> PortTask.await(30_000)
-    Transcriber.start_link(file)
+    Transcriber.start_link(file <> ".wav")
   end
 end
