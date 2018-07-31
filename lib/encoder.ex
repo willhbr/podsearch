@@ -1,34 +1,56 @@
 defmodule Encoder do
-  def reencode(path) do
-    output = path <> ".wav"
-    File.rm(output)
-    exec = System.find_executable("ffmpeg")
-    port = Port.open(
-      {:spawn_executable, exec},
-      [:binary,
-       :stderr_to_stdout,
-       args: [
-         "-i", path,
-         "-acodec", "pcm_s16le",
-         "-ar", "16000",
-         "-ac", "1",
-         output]
-      ]
-    )
-    Port.connect(port, self())
-    loop(port)
-    path <> ".wav"
+  use PortTask
+
+  def start_link(path) do
+    PortTask.start_link __MODULE__, [path]
   end
 
-  defp loop(port) do
-    receive do
-      _message ->
-        loop(port)
-    after
-      30_000 ->
-        if Port.info(port) do
-          loop(port)
-        end
+  def init(path) do
+    output = path <> ".wav"
+    File.rm(output)
+    {:ok, [
+      "ffmpeg",
+      "-i", path,
+      "-acodec", "pcm_s16le",
+      "-ar", "16000",
+      "-ac", "1",
+      output
+    ], {nil, nil}}
+  end
+
+  def handle_output(_port, contents, {total, progress}) do
+    total = if total do
+      total
+    else
+      case Regex.run(~r/TLEN\s+:\s+(\d+)/, contents) do
+        [_all, length] ->
+          {time, ""} = Integer.parse(length)
+          time / 1000
+        _ -> nil
+      end
+    end
+    progress = case Regex.run(~r/time=(\d\d):(\d\d):(\d\d)/, contents) do
+      [_all, h, m, s] ->
+        [h, m, s] = Enum.map([h, m, s], fn t ->
+          {t, ""} = Integer.parse(t)
+          t
+        end)
+        (
+          h * 60 * 60 +
+          m * 60 +
+          s
+        )
+      _ -> progress
+    end
+    IO.inspect {total, progress}
+    {:ok, {total, progress}}
+  end
+
+  def get_progress(_port, {total, progress}) do
+    if total == nil || progress == nil do
+      0
+    else
+      progress / total
     end
   end
 end

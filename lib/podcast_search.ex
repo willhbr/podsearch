@@ -1,12 +1,16 @@
 defmodule PodcastSearch do
   def download_latest(url) do
-    Feed.parse_from_url(url).episodes
+    file = Feed.parse_from_url(url).episodes
     |> hd
     |> Downloader.download_podcast
     |> case do
       {:ok, path} -> path
     end
-    |> Encoder.reencode
-    |> Transcriber.start_link
+    Encoder.start_link(file)
+    |> case do
+      {:ok, pid} -> pid
+    end
+    |> PortTask.await(30_000)
+    Transcriber.start_link(file)
   end
 end
