@@ -52,18 +52,22 @@ defmodule PortTask do
     {:stop, reason, s}
   end
 
-  def handle_info(info, state) do
-    IO.warn(inspect(info))
-    {:noreply, state}
-  end
-
   def handle_call(:get_progress, _from, s={port, module, state}) do
     progress = :erlang.apply(module, :get_progress, [port, state])
     {:reply, progress, s}
   end
 
+  def handle_call(:stop, _from, state = {port, _, _}) do
+    Port.close(port)
+    {:stop, :normal, :ok, state}
+  end
+
   def get_progress(pid) do
     GenServer.call(pid, :get_progress)
+  end
+
+  def stop(pid) do
+    GenServer.call(pid, :stop)
   end
 
   def await(pid, timeout \\ 5000) do
