@@ -7,6 +7,9 @@ defmodule Encoder do
 
   def init(path) do
     output = path <> ".wav"
+    unless File.exists? path do
+      exit "File doesn't exist: #{path}"
+    end
     File.rm(output)
     {:ok, [
       "ffmpeg",
@@ -42,7 +45,6 @@ defmodule Encoder do
         )
       _ -> progress
     end
-    IO.inspect {total, progress}
     {:ok, {total, progress}}
   end
 

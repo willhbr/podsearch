@@ -3,6 +3,15 @@ defmodule PortTask do
     quote do
       import PortTask
 
+      def child_spec(args) do
+        %{
+          id: __MODULE__,
+          start: {PortTask, :start_link, [__MODULE__, args]},
+          type: :worker,
+          restart: :temporary,
+        }
+      end
+
       def handle_finish(_port, _reason, _state), do: nil
       defoverridable handle_finish: 3
 

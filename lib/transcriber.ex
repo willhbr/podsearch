@@ -4,14 +4,6 @@ defmodule Transcriber do
     PortTask.start_link __MODULE__, [path]
   end
 
-  def child_spec(path) do
-    %{
-      id: {Transcriber, path},
-      start: {__MODULE__, :start_link, [path]},
-      restart: :temporary
-    }
-  end
-
   def init(path) do
     {:ok, [
       "pocketsphinx_continuous",
