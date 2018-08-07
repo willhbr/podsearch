@@ -7,7 +7,7 @@ defmodule Feed do
 
   def parse_from_url(url) do
     HTTPoison.get!(url).body
-    |> ElixirFeedParser.parse
+    |> ElixirFeedParser.parse()
     |> from_feed
   end
 
@@ -38,9 +38,10 @@ defmodule Feed do
         enclosure: %{
           length: leng,
           type: type,
-          url: episode_url,
+          url: episode_url
         }
       } = entry
+
       %Episode{
         title: title,
         episode_url: episode_url,
@@ -49,7 +50,7 @@ defmodule Feed do
         description: description,
         guid: guid,
         updated: updated,
-        url: url,
+        url: url
       }
     end
   end

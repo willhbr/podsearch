@@ -1,14 +1,13 @@
 defmodule Transcriber do
   use PortTask
+
   def start_link(path) do
-    PortTask.start_link __MODULE__, [path]
+    PortTask.start_link(__MODULE__, [path])
   end
 
   def init(path) do
-    {:ok, [
-      "pocketsphinx_continuous",
-      "-time", "1",
-      "-infile", path], {"", [], nil}}
+    {:ok, ["pocketsphinx_continuous", "-time", "1", "-infile", path],
+     {"", [], nil}}
   end
 
   def get_transcript(pid) do
@@ -29,20 +28,24 @@ defmodule Transcriber do
     # TODO Make this suck less
     last = List.last(lines)
 
-    additional_words = :lists.droplast(lines)
-    |> Stream.map(fn line ->
-      Regex.replace(~r/\(\d+\)/, line, "")
-      |> handle_line()
-    end)
-    |> Enum.filter(fn word -> word != :drop end)
+    additional_words =
+      :lists.droplast(lines)
+      |> Stream.map(fn line ->
+        Regex.replace(~r/\(\d+\)/, line, "")
+        |> handle_line()
+      end)
+      |> Enum.filter(fn word -> word != :drop end)
 
     new_words = Enum.into(additional_words, transcript)
 
-    progress = case List.first(additional_words) do
-      {_, time} ->
-        time
-      _ -> progress
-    end
+    progress =
+      case List.first(additional_words) do
+        {_, time} ->
+          time
+
+        _ ->
+          progress
+      end
 
     {last, new_words, progress}
   end
@@ -53,13 +56,16 @@ defmodule Transcriber do
 
   def handle_line(line) do
     contents = String.split(line, " ")
+
     case contents do
       [word, start, _fin, _duration] ->
-        case Float.parse start do
+        case Float.parse(start) do
           {start, ""} -> {word, start}
           _ -> :drop
         end
-      _ -> :drop
+
+      _ ->
+        :drop
     end
   end
 
