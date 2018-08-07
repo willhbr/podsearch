@@ -55,6 +55,10 @@ defmodule DownloadTask do
     AsyncEnd
   }
 
+  def handle_call(:get_progress, _from, state) do
+    {:reply, {state.content_length, state.downloaded_length}, state}
+  end
+
   def handle_info(%AsyncStatus{code: 200}, state), do: {:noreply, state}
 
   def handle_info(%AsyncStatus{code: status_code}, state)
@@ -66,15 +70,19 @@ defmodule DownloadTask do
   end
 
   def handle_info(%AsyncHeaders{headers: headers}, state) do
-    content_length_header =
-      Enum.find(headers, fn {header_name, _value} ->
-        header_name == "Content-Length"
-      end)
+    size =
+      with header when header != nil <-
+             Enum.find(headers, fn {header, _value} ->
+               header == "Content-Length"
+             end),
+           {_, str_size} <- header,
+           {length, ""} <- Integer.parse(str_size),
+           do: length
 
-    if content_length_header && content_length_header > state.max_download_size do
-      cleanup_and_stop({:error, :file_too_big, content_length_header}, state)
+    if size && size > state.max_download_size do
+      cleanup_and_stop({:error, :file_too_big, size}, state)
     else
-      {:noreply, %{state | content_length: content_length_header}}
+      {:noreply, %{state | content_length: size}}
     end
   end
 
@@ -87,7 +95,8 @@ defmodule DownloadTask do
       {:noreply, %{state | downloaded_length: downloaded_length}}
     else
       cleanup_and_stop({:error, :file_size_exceeded, downloaded_length}, %{
-        state | downloaded_length: downloaded_length
+        state
+        | downloaded_length: downloaded_length
       })
     end
   end
@@ -97,6 +106,7 @@ defmodule DownloadTask do
     case start_download(new_url) do
       {:ok, _} ->
         {:noreply, %{state | url: new_url}}
+
       error ->
         cleanup_and_stop(error, state)
     end

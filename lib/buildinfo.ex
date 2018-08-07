@@ -70,7 +70,11 @@ defmodule BuildInfo do
   end
 
   defp tag_hash(tag) do
-    case System.cmd("git", ["log", "-1", "--format=%h", tag], stderr_to_stdout: true) do
+    case System.cmd(
+           "git",
+           ["log", "-1", "--format=%h", tag],
+           stderr_to_stdout: true
+         ) do
       {hash, 0} ->
         String.trim(hash)
 
