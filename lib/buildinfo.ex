@@ -38,7 +38,7 @@ defmodule BuildInfo do
     {info, 0} =
       System.cmd(
         "git",
-        ["log", "-1", "--format=%h|%cd|%an", "HEAD"]
+        ["log", "-1", "--format=%h|%cI|%an", "HEAD"]
       )
 
     [hash, commit_date, author] = info |> String.trim() |> String.split("|")
@@ -47,15 +47,8 @@ defmodule BuildInfo do
 
   defp current_time do
     {{y, m, d}, {h, min, s}} = :calendar.universal_time()
-    t_s = &Integer.to_string/1
 
-    now =
-      t_s.(y) <>
-        "-" <>
-        t_s.(m) <>
-        "-" <> t_s.(d) <> " " <> t_s.(h) <> ":" <> t_s.(min) <> ":" <> t_s.(s)
-
-    now <> " UTC"
+    "#{y}-#{m}-#{d} #{h}:#{min}:#{s} UTC"
   end
 
   defp get_tag do
@@ -95,16 +88,13 @@ defimpl String.Chars, for: BuildInfo do
       }) do
     dirty_string =
       if is_dirty do
-        "+ ("
+        "-dev"
       else
-        " ("
+        ""
       end
 
-    "v" <>
-      version <>
-      dirty_string <>
-      commit_hash <>
-      ") by " <>
-      commit_author <> " at " <> commit_time <> " built at " <> build_time
+    "#{version}#{dirty_string} (#{commit_hash} by #{commit_author} at #{
+      commit_time
+    }) built at #{build_time}"
   end
 end
