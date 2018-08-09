@@ -6,9 +6,12 @@ defmodule Feed do
   ]
 
   def parse_from_url(url) do
-    HTTPoison.get!(url).body
-    |> ElixirFeedParser.parse()
-    |> from_feed
+    with {:ok, resp} <- HTTPoison.get(url, DownloadTask.default_headers()),
+         body <- resp.body do
+      body
+      |> ElixirFeedParser.parse()
+      |> from_feed
+    end
   end
 
   def from_feed(%{url: url, title: title, entries: entries}) do

@@ -1,4 +1,15 @@
 defmodule DownloadTask do
+  use GenServer
+  require Logger
+
+  alias HTTPoison.{
+    AsyncHeaders,
+    AsyncStatus,
+    AsyncChunk,
+    AsyncRedirect,
+    AsyncEnd
+  }
+
   defstruct [
     :file,
     :path,
@@ -17,7 +28,11 @@ defmodule DownloadTask do
   # 1 GB
   @default_max_file_size 1024 * 1024 * 1000
 
-  def start_link(url, path) do
+  def default_headers do
+    @default_headers
+  end
+
+  def start_link({url, path}) do
     GenServer.start_link(__MODULE__, {url, path})
   end
 
@@ -45,15 +60,13 @@ defmodule DownloadTask do
     )
   end
 
-  defp open_file(path), do: File.open(path, [:write, :exclusive])
+  defp open_file(path) do
+    if File.exists?(path) do
+      File.rm!(path)
+    end
 
-  alias HTTPoison.{
-    AsyncHeaders,
-    AsyncStatus,
-    AsyncChunk,
-    AsyncRedirect,
-    AsyncEnd
-  }
+    File.open(path, [:write, :exclusive])
+  end
 
   def handle_call(:get_progress, _from, state) do
     {:reply, {state.content_length, state.downloaded_length}, state}
@@ -115,6 +128,11 @@ defmodule DownloadTask do
   def handle_info(%AsyncEnd{}, state) do
     File.close(state.file)
     {:stop, :normal, state}
+  end
+
+  def handle_info(%HTTPoison.Error{reason: reason}, state) do
+    Logger.error("Download #{state.url} failed: #{reason}")
+    {:stop, {:error, reason}, state}
   end
 
   defp cleanup_and_stop(reason, state) do

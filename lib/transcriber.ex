@@ -1,11 +1,14 @@
 defmodule Transcriber do
   use PortTask
+  require Logger
 
   def start_link(path) do
     PortTask.start_link(__MODULE__, [path])
   end
 
   def init(path) do
+    Logger.info("Starting transcriber: #{path}")
+
     {:ok, ["pocketsphinx_continuous", "-time", "1", "-infile", path],
      {"", [], nil}}
   end

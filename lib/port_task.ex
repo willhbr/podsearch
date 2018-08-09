@@ -23,6 +23,7 @@ defmodule PortTask do
   end
 
   use GenServer
+  require Logger
 
   def start_link(module, args) do
     GenServer.start_link(PortTask, {module, args})
@@ -30,7 +31,7 @@ defmodule PortTask do
 
   def init({module, args}) do
     {binary, args, state} =
-      :erlang.apply(module, :init, args)
+      :erlang.apply(module, :init, [args])
       |> case do
         {:ok, [binary | args], state} -> {binary, args, state}
         error -> raise error
@@ -61,6 +62,7 @@ defmodule PortTask do
   end
 
   def handle_info({:DOWN, _ref, :port, port, reason}, s = {port, module, state}) do
+    Logger.info("#{module} finished")
     :erlang.apply(module, :handle_finish, [port, reason, state])
     {:stop, reason, s}
   end

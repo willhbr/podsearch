@@ -18,13 +18,16 @@ defmodule TaskQueue do
             supervisor: nil
 
   use GenServer
+  require Logger
 
   def start_link(name: name) do
+    Logger.info("Starting queue: #{name}")
     GenServer.start_link(__MODULE__, [], name: name)
   end
 
   def init(_args) do
     {:ok, supervisor} = DynamicSupervisor.start_link(strategy: :one_for_one)
+    Process.send_after(self(), :update_and_reschedule, 10_000)
     {:ok, %TaskQueue{supervisor: supervisor}}
   end
 
@@ -52,37 +55,15 @@ defmodule TaskQueue do
       # return_at: nil
     }
 
+    Logger.info("Child added: #{inspect(child_spec)}")
+
     {:reply, {:ok, task},
      %{queue | next_id: queue.next_id + 1, unstarted: [task | queue.unstarted]}}
   end
 
   def handle_call(:update_tasks, _from, queue) do
-    start_count = queue.max_parallel - (Map.keys(queue.in_progress) |> length)
-
-    sorted =
-      Enum.sort(queue.unstarted, fn a, b -> a.created_at < b.created_at end)
-      |> Enum.filter(fn task -> task.failure_count < queue.max_failures end)
-
-    to_start = Enum.take(sorted, start_count)
-    remaining = Enum.drop(sorted, start_count)
-
-    in_progress =
-      to_start
-      |> Stream.map(fn task ->
-        case DynamicSupervisor.start_child(queue.supervisor, task.child_spec) do
-          {:ok, pid} ->
-            ref = Process.monitor(pid)
-            task = %{task | ref: ref}
-            {pid, task}
-
-          error ->
-            # TODO don't fail on init failure
-            exit(error)
-        end
-      end)
-      |> Enum.into(queue.in_progress)
-
-    {:reply, :ok, %{queue | unstarted: remaining, in_progress: in_progress}}
+    queue = update_tasks(queue)
+    {:reply, :ok, queue}
   end
 
   def handle_info({:DOWN, _ref, :process, pid, :normal}, queue) do
@@ -110,5 +91,47 @@ defmodule TaskQueue do
 
     in_progress = Map.delete(queue.in_progress, pid)
     {:noreply, %{queue | in_progress: in_progress, unstarted: unstarted}}
+  end
+
+  def handle_info(:update_and_reschedule, state) do
+    state = update_tasks(state)
+    Process.send_after(self(), :update_and_reschedule, 10_000)
+    {:noreply, state}
+  end
+
+  defp update_tasks(queue) do
+    start_count = queue.max_parallel - (Map.keys(queue.in_progress) |> length)
+
+    sorted =
+      Enum.sort(queue.unstarted, fn a, b -> a.created_at < b.created_at end)
+      |> Enum.filter(fn task -> task.failure_count < queue.max_failures end)
+
+    to_start = Enum.take(sorted, start_count)
+    remaining = Enum.drop(sorted, start_count)
+
+    if to_start != [] do
+      Logger.info("Starting #{start_count} tasks")
+    end
+
+    in_progress =
+      to_start
+      |> Stream.map(fn task ->
+        Logger.info("Starting #{inspect(task.child_spec)}")
+
+        case DynamicSupervisor.start_child(queue.supervisor, task.child_spec) do
+          {:ok, pid} ->
+            Logger.info("Started #{inspect(pid)}")
+            ref = Process.monitor(pid)
+            task = %{task | ref: ref}
+            {pid, task}
+
+          error ->
+            # TODO don't fail on init failure
+            exit(error)
+        end
+      end)
+      |> Enum.into(queue.in_progress)
+
+    %{queue | unstarted: remaining, in_progress: in_progress}
   end
 end
