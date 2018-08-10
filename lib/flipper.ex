@@ -3,36 +3,18 @@ defmodule Flipper do
   Generate methods for flipping the attributes in the state variable
   """
   defmacro __using__(opts) do
-    IO.inspect opts
-    res = Enum.map(opts, fn
-      attr when is_atom(attr) ->
-        generate_flipper(attr)
-      attr ->
-        raise "Attributes should be atoms, got: #{inspect(attr)}"
-    end)
-    res = quote do
-      unquote_splicing(res)
+    quote do
       def validate_flag(_, _, _) do
         {:error, :invalid_flag}
       end
       defoverridable validate_flag: 3
 
-      def handle_call(:list_flags, _from, state) do
-        {:reply, unquote(opts), state}
-      end
-    end
-    res |> Macro.to_string |> IO.puts
-    res
-  end
-
-  defp generate_flipper(attr) do
-    quote do
-      def handle_call({:set_flag, unquote(attr), value}, _from, state) do
-        case validate_flag(unquote(attr), value, state) do
+      def handle_call({:set_flag, flag, value}, _from, state) when flag in unquote(opts) do
+        case validate_flag(flag, value, state) do
           :ok ->
-            {:reply, :ok, %{state | unquote(attr) => value}}
+            {:reply, :ok, %{state | flag => value}}
           true ->
-            {:reply, :ok, %{state | unquote(attr) => value}}
+            {:reply, :ok, %{state | flag => value}}
           false ->
             {:reply, {:error, :validate_failed}, state}
           error ->
@@ -40,12 +22,20 @@ defmodule Flipper do
         end
       end
 
-      def handle_call({:get_flag, unquote(attr)}, _from, state) do
-        value = state[unquote(attr)]
-        {:reply, {:ok, value}, state}
+      def handle_call({:set_flag, _flag, _}, _from, state) do
+        {:reply, {:error, :unknown_flag}, state}
       end
-      def validate_flag(unquote(attr), state) do
-        :ok
+
+      def handle_call({:get_flag, flag}, _from, state) when flag in unquote(opts) do
+        {:reply, {:ok, Map.get(state, flag)}, state}
+      end
+
+      def handle_call({:get_flag, _flag}, _from, state) do
+        {:reply, {:error, :unknown_flag}, state}
+      end
+
+      def handle_call(:list_flags, _from, state) do
+        {:reply, unquote(opts), state}
       end
     end
   end

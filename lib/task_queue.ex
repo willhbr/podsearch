@@ -16,6 +16,10 @@ defmodule TaskQueue do
             unstarted: [],
             in_progress: %{},
             supervisor: nil
+
+  use GenServer
+  require Logger
+
   use Flipper, [
     :max_parallel,
     :max_failures,
@@ -25,9 +29,6 @@ defmodule TaskQueue do
   def validate_flag(:max_parallel, _, _), do: false
   def validate_flag(:max_failures, value, _) when is_integer(value), do: value >= 0
   def validate_flag(:max_failures, _, _), do: false
-
-  use GenServer
-  require Logger
 
   def start_link(name: name) do
     Logger.info("Starting queue: #{name}")
